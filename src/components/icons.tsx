@@ -58,6 +58,17 @@ export function IconShare(props: IconProps) {
   );
 }
 
+export function IconTrash(props: IconProps) {
+  return (
+    <svg {...base} width={24} height={24} viewBox="0 0 24 24" strokeWidth={2} {...props}>
+      <path d="M4.5 7H19.5" />
+      <path d="M9 7V5.5C9 4.67 9.67 4 10.5 4H13.5C14.33 4 15 4.67 15 5.5V7" />
+      <path d="M6.5 7L7.4 18.6C7.46 19.4 8.12 20 8.92 20H15.08C15.88 20 16.54 19.4 16.6 18.6L17.5 7" />
+      <path d="M10 11V16M14 11V16" />
+    </svg>
+  );
+}
+
 export function IconChevronLeft(props: IconProps) {
   return (
     <svg {...base} width={24} height={24} viewBox="0 0 24 24" strokeWidth={2} {...props}>

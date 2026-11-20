@@ -2,13 +2,14 @@
 
 import { useMemoById } from "@/lib/memoApi";
 import { PrimaryButton } from "./Button";
+import { DeleteButton } from "./DeleteButton";
 import { IconButton, IconLink } from "./IconButton";
-import { IconChevronLeft, IconPin, IconShare } from "./icons";
+import { IconChevronLeft, IconPin, IconShare, IconTrash } from "./icons";
 import { MemoArticleView } from "./MemoArticleView";
 import { PinButton } from "./PinButton";
 
-/** 위쪽 막대: 뒤로가기, 고정, 공유. 메모를 읽기 전에는 고정 버튼이 눌리지 않는다. */
-export function DetailNav({ memo }: { memo?: { id: string; pinned: boolean } }) {
+/** 위쪽 막대: 뒤로가기, 고정, 공유, 삭제. 메모를 읽기 전에는 고정·삭제 버튼이 눌리지 않는다. */
+export function DetailNav({ memo }: { memo?: { id: string; title: string; pinned: boolean } }) {
   return (
     <nav className="flex items-center justify-between">
       <IconLink label="뒤로가기" href="/">
@@ -16,7 +17,7 @@ export function DetailNav({ memo }: { memo?: { id: string; pinned: boolean } }) 
       </IconLink>
       <div className="flex">
         {memo ? (
-          <PinButton key={memo.id} id={memo.id} initialPinned={memo.pinned} />
+          <PinButton key={`pin-${memo.id}`} id={memo.id} initialPinned={memo.pinned} />
         ) : (
           <IconButton label="고정" disabled>
             <IconPin />
@@ -25,6 +26,13 @@ export function DetailNav({ memo }: { memo?: { id: string; pinned: boolean } }) 
         <IconButton label="공유">
           <IconShare />
         </IconButton>
+        {memo ? (
+          <DeleteButton key={`delete-${memo.id}`} id={memo.id} title={memo.title} />
+        ) : (
+          <IconButton label="삭제" disabled>
+            <IconTrash />
+          </IconButton>
+        )}
       </div>
     </nav>
   );

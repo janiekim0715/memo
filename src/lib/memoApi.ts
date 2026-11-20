@@ -106,6 +106,20 @@ export async function setMemoPinned(id: string, pinned: boolean): Promise<void> 
   if (error) throw error;
 }
 
+/**
+ * 메모를 지운다. 되돌릴 수 없다.
+ * 지운 줄이 없으면(이미 없거나 권한이 막혔으면) 정말 없는지 다시 확인해서, 아직 있으면 실패로 알린다.
+ */
+export async function deleteMemo(id: string): Promise<void> {
+  const { data, error } = await getSupabase().from("memos").delete().eq("id", id).select("id");
+  if (error) throw error;
+  if (!data?.length && (await fetchMemo(id))) {
+    throw new Error("메모를 지우지 못했어요.");
+  }
+  // 홈으로 돌아갔을 때 지운 메모가 잠깐 보이지 않게, 읽어 둔 목록에서도 바로 뺀다.
+  setListState({ ...listState, memos: listState.memos.filter((memo) => memo.id !== id) });
+}
+
 /* ---------- 홈 목록: 홈의 여러 부분(메모 수, 카드)이 같은 결과를 함께 쓴다 ---------- */
 
 export type MemoListState = {
