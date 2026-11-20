@@ -5,15 +5,22 @@ import type { DetailedMemo, MemoLabel } from "@/data/memos";
 
 /*
  * 이 브라우저의 localStorage에 메모를 저장한다.
- * - memo-app:memos : 저장한 메모 목록 (새 메모가 맨 앞)
- * - memo-app:draft : 작성 중인 글 (자동 저장)
+ * - memo-app:memos     : 이 브라우저에서 새로 쓴 메모 목록 (새 메모가 맨 앞)
+ * - memo-app:overrides : 처음부터 있던 메모를 고친 내용 (메모 id -> 고친 메모)
+ * - memo-app:draft     : 작성 중인 새 글 (자동 저장)
+ * - memo-app:draft:<id>: 수정 중인 글 (자동 저장)
  */
 const MEMOS_KEY = "memo-app:memos";
+const OVERRIDES_KEY = "memo-app:overrides";
 const DRAFT_KEY = "memo-app:draft";
 const CHANGE_EVENT = "memo-app:change";
 
-const EMPTY: DetailedMemo[] = [];
 const LABELS: MemoLabel[] = ["blue", "green", "orange", "pink"];
+
+export type MemoOverrides = Record<string, DetailedMemo>;
+
+const EMPTY_MEMOS: DetailedMemo[] = [];
+const EMPTY_OVERRIDES: MemoOverrides = {};
 
 function read(key: string): string | null {
   try {
@@ -40,6 +47,10 @@ function remove(key: string) {
   }
 }
 
+function notifyChange() {
+  window.dispatchEvent(new Event(CHANGE_EVENT));
+}
+
 function isDetailedMemo(value: unknown): value is DetailedMemo {
   if (typeof value !== "object" || value === null) return false;
   const memo = value as Record<string, unknown>;
@@ -55,45 +66,77 @@ function isDetailedMemo(value: unknown): value is DetailedMemo {
   );
 }
 
-function parseMemos(raw: string | null): DetailedMemo[] {
-  if (!raw) return EMPTY;
+function parseJson(raw: string | null): unknown {
+  if (!raw) return null;
   try {
-    const data: unknown = JSON.parse(raw);
-    return Array.isArray(data) ? data.filter(isDetailedMemo) : EMPTY;
+    return JSON.parse(raw);
   } catch {
-    return EMPTY;
+    return null;
   }
 }
 
-// useSyncExternalStore는 같은 값이면 같은 참조를 돌려줘야 해서 문자열이 같을 땐 결과를 재사용한다.
-let cachedRaw: string | null | undefined;
-let cachedMemos: DetailedMemo[] = EMPTY;
+function parseMemos(raw: string | null): DetailedMemo[] {
+  const data = parseJson(raw);
+  return Array.isArray(data) ? data.filter(isDetailedMemo) : EMPTY_MEMOS;
+}
 
-function getSnapshot(): DetailedMemo[] {
-  const raw = read(MEMOS_KEY);
-  if (raw !== cachedRaw) {
-    cachedRaw = raw;
-    cachedMemos = parseMemos(raw);
+function parseOverrides(raw: string | null): MemoOverrides {
+  const data = parseJson(raw);
+  if (typeof data !== "object" || data === null || Array.isArray(data)) return EMPTY_OVERRIDES;
+  const result: MemoOverrides = {};
+  for (const [id, value] of Object.entries(data)) {
+    if (isDetailedMemo(value) && value.id === id) result[id] = value;
   }
-  return cachedMemos;
+  return result;
 }
 
-function getServerSnapshot(): DetailedMemo[] {
-  return EMPTY;
-}
+/**
+ * localStorage의 한 항목을 useSyncExternalStore로 읽는 저장소.
+ * 같은 값이면 같은 참조를 돌려줘야 해서, 문자열이 같을 땐 풀어 둔 결과를 재사용한다.
+ */
+function createStore<T>(key: string, empty: T, parse: (raw: string | null) => T) {
+  let cachedRaw: string | null | undefined;
+  let cached = empty;
 
-function subscribe(onChange: () => void) {
-  window.addEventListener("storage", onChange);
-  window.addEventListener(CHANGE_EVENT, onChange);
-  return () => {
-    window.removeEventListener("storage", onChange);
-    window.removeEventListener(CHANGE_EVENT, onChange);
+  const getSnapshot = (): T => {
+    const raw = read(key);
+    if (raw !== cachedRaw) {
+      cachedRaw = raw;
+      cached = parse(raw);
+    }
+    return cached;
   };
+  const getServerSnapshot = (): T => empty;
+  const subscribe = (onChange: () => void) => {
+    window.addEventListener("storage", onChange);
+    window.addEventListener(CHANGE_EVENT, onChange);
+    return () => {
+      window.removeEventListener("storage", onChange);
+      window.removeEventListener(CHANGE_EVENT, onChange);
+    };
+  };
+  return { getSnapshot, getServerSnapshot, subscribe };
 }
 
-/** 이 브라우저에 저장된 메모 (새 메모가 맨 앞). 서버 렌더링 때는 빈 목록. */
+const memosStore = createStore(MEMOS_KEY, EMPTY_MEMOS, parseMemos);
+const overridesStore = createStore(OVERRIDES_KEY, EMPTY_OVERRIDES, parseOverrides);
+
+/** 이 브라우저에서 새로 쓴 메모 (새 메모가 맨 앞). 서버 렌더링 때는 빈 목록. */
 export function useSavedMemos(): DetailedMemo[] {
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  return useSyncExternalStore(
+    memosStore.subscribe,
+    memosStore.getSnapshot,
+    memosStore.getServerSnapshot,
+  );
+}
+
+/** 처음부터 있던 메모를 고친 내용 (메모 id -> 고친 메모). 서버 렌더링 때는 빈 객체. */
+export function useMemoOverrides(): MemoOverrides {
+  return useSyncExternalStore(
+    overridesStore.subscribe,
+    overridesStore.getSnapshot,
+    overridesStore.getServerSnapshot,
+  );
 }
 
 const noopSubscribe = () => () => {};
@@ -103,10 +146,23 @@ export function useHydrated(): boolean {
   return useSyncExternalStore(noopSubscribe, () => true, () => false);
 }
 
-/** 메모를 맨 앞에 저장한다. 저장소를 못 쓰면 false. */
+/** 새 메모를 맨 앞에 저장한다. 저장소를 못 쓰면 false. */
 export function addMemo(memo: DetailedMemo): boolean {
-  const ok = write(MEMOS_KEY, JSON.stringify([memo, ...getSnapshot()]));
-  if (ok) window.dispatchEvent(new Event(CHANGE_EVENT));
+  const ok = write(MEMOS_KEY, JSON.stringify([memo, ...memosStore.getSnapshot()]));
+  if (ok) notifyChange();
+  return ok;
+}
+
+/**
+ * 고친 메모를 저장한다. 이 브라우저에서 새로 쓴 메모는 그 자리에서 바꾸고,
+ * 처음부터 있던 메모는 고친 내용을 따로 보관해 원래 내용 대신 보여 준다.
+ */
+export function saveEdit(memo: DetailedMemo): boolean {
+  const saved = memosStore.getSnapshot();
+  const ok = saved.some((item) => item.id === memo.id)
+    ? write(MEMOS_KEY, JSON.stringify(saved.map((item) => (item.id === memo.id ? memo : item))))
+    : write(OVERRIDES_KEY, JSON.stringify({ ...overridesStore.getSnapshot(), [memo.id]: memo }));
+  if (ok) notifyChange();
   return ok;
 }
 
@@ -117,27 +173,24 @@ export type Draft = {
   body: string;
 };
 
-export function loadDraft(): Draft | null {
-  const raw = read(DRAFT_KEY);
-  if (!raw) return null;
-  try {
-    const data = JSON.parse(raw) as Partial<Draft>;
-    if (typeof data.title !== "string" || typeof data.body !== "string") return null;
-    return {
-      title: data.title,
-      body: data.body,
-      category: typeof data.category === "string" ? data.category : "",
-      color: LABELS.includes(data.color as MemoLabel) ? (data.color as MemoLabel) : "blue",
-    };
-  } catch {
-    return null;
-  }
+// id가 없으면 새 글의 보관본, 있으면 그 메모를 수정 중인 글의 보관본
+const draftKey = (id?: string) => (id ? `${DRAFT_KEY}:${id}` : DRAFT_KEY);
+
+export function loadDraft(id?: string): Draft | null {
+  const data = parseJson(read(draftKey(id))) as Partial<Draft> | null;
+  if (!data || typeof data.title !== "string" || typeof data.body !== "string") return null;
+  return {
+    title: data.title,
+    body: data.body,
+    category: typeof data.category === "string" ? data.category : "",
+    color: LABELS.includes(data.color as MemoLabel) ? (data.color as MemoLabel) : "blue",
+  };
 }
 
-export function saveDraft(draft: Draft) {
-  write(DRAFT_KEY, JSON.stringify(draft));
+export function saveDraft(draft: Draft, id?: string) {
+  write(draftKey(id), JSON.stringify(draft));
 }
 
-export function clearDraft() {
-  remove(DRAFT_KEY);
+export function clearDraft(id?: string) {
+  remove(draftKey(id));
 }

@@ -1,11 +1,10 @@
 import { Chip } from "@/components/Chip";
 import { PrimaryButton } from "@/components/Button";
-import { MemoCount, RecentMemoCard } from "@/components/HomeLive";
+import { MemoCount, PinnedMemoCard, RecentMemoCard } from "@/components/HomeLive";
 import { IconPlus } from "@/components/icons";
-import { MemoCard } from "@/components/MemoCard";
 import { pinnedMemos, recentMemos } from "@/data/memos";
 
-// 처음부터 있던 메모 수 (시안의 값). 이 브라우저에서 저장한 메모는 여기에 더해진다.
+// 처음부터 있던 메모 수 (시안의 값). 이 브라우저에서 새로 쓴 메모는 여기에 더해진다.
 const baseMemoCount = 128;
 
 export default function Home() {
@@ -29,7 +28,7 @@ export default function Home() {
           <Chip label="개인" />
           <Chip label="아이디어" />
         </nav>
-        <MemoCard title="고정한 메모" memos={pinnedMemos} pin />
+        <PinnedMemoCard memos={pinnedMemos} />
         <RecentMemoCard memos={recentMemos} />
       </div>
       <div className="sticky bottom-space-34">

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
-import type { MemoLabel } from "@/data/memos";
+import type { DetailedMemo, MemoLabel } from "@/data/memos";
 import {
   getFormatState,
   toggleBold,
@@ -10,8 +10,16 @@ import {
   type EditResult,
   type LineFormat,
 } from "@/lib/editorFormat";
-import { addMemo, clearDraft, loadDraft, saveDraft, useHydrated } from "@/lib/memoStore";
-import { formatCreatedAt, parseBody, previewOf } from "@/lib/memoText";
+import {
+  addMemo,
+  clearDraft,
+  loadDraft,
+  saveDraft,
+  saveEdit,
+  useHydrated,
+  type Draft,
+} from "@/lib/memoStore";
+import { blocksToBody, formatCreatedAt, parseBody, previewOf } from "@/lib/memoText";
 import { PrimaryButton } from "./Button";
 import { Chip } from "./Chip";
 import { ColorDot } from "./ColorDot";
@@ -30,21 +38,38 @@ const COLORS: { color: MemoLabel; name: string }[] = [
 const frameClass =
   "mx-auto flex min-h-dvh w-full max-w-[390px] flex-col gap-space-16 px-space-16 pt-space-48 pb-space-34";
 
-/** 메모 작성 화면. 저장소는 브라우저에만 있어서 화면이 준비된 뒤에 그린다. */
-export function WriteForm() {
+/**
+ * 메모 작성 화면. memo를 주면 그 메모를 고치는 수정 화면이 된다.
+ * 저장소는 브라우저에만 있어서 화면이 준비된 뒤에 그린다.
+ */
+export function WriteForm({ memo }: { memo?: DetailedMemo }) {
   const hydrated = useHydrated();
-  return hydrated ? <WriteScreen /> : <main className={frameClass} />;
+  return hydrated ? <WriteScreen memo={memo} /> : <main className={frameClass} />;
 }
 
-function WriteScreen() {
+function WriteScreen({ memo }: { memo?: DetailedMemo }) {
   const router = useRouter();
-  const [draft] = useState(loadDraft);
-  const [title, setTitle] = useState(draft?.title ?? "");
-  const [category, setCategory] = useState(
-    CATEGORIES.includes(draft?.category ?? "") ? (draft?.category ?? CATEGORIES[0]) : CATEGORIES[0],
+
+  // 처음 채워질 값: 수정이면 그 메모의 지금 내용, 새 글이면 빈 글
+  const [base] = useState<Draft>(() =>
+    memo
+      ? {
+          title: memo.title,
+          category: memo.detail.category,
+          color: memo.label,
+          body: blocksToBody(memo.detail.blocks),
+        }
+      : { title: "", category: CATEGORIES[0], color: "blue", body: "" },
   );
-  const [color, setColor] = useState<MemoLabel>(draft?.color ?? "blue");
-  const [body, setBody] = useState(draft?.body ?? "");
+  // 쓰다 만 글이 보관돼 있으면 그것을 이어서 쓴다.
+  const [start] = useState<Draft>(() => loadDraft(memo?.id) ?? base);
+
+  const [title, setTitle] = useState(start.title);
+  const [category, setCategory] = useState(
+    CATEGORIES.includes(start.category) ? start.category : CATEGORIES[0],
+  );
+  const [color, setColor] = useState<MemoLabel>(start.color);
+  const [body, setBody] = useState(start.body);
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [failed, setFailed] = useState(false);
 
@@ -61,12 +86,18 @@ function WriteScreen() {
     textarea.setSelectionRange(pending.start, pending.end);
   }, [body]);
 
-  // 작성 중인 글은 바로바로 이 브라우저에 보관한다 (비우면 지운다).
-  const hasContent = title.trim() !== "" || body.trim() !== "";
+  // 고친 곳이 있으면 바로바로 이 브라우저에 보관한다 (처음과 같아지면 지운다).
+  const memoId = memo?.id;
+  const pristine = memo
+    ? title === base.title &&
+      category === base.category &&
+      color === base.color &&
+      body === base.body
+    : title === "" && body === "";
   useEffect(() => {
-    if (title === "" && body === "") clearDraft();
-    else saveDraft({ title, category, color, body });
-  }, [title, category, color, body]);
+    if (pristine) clearDraft(memoId);
+    else saveDraft({ title, category, color, body }, memoId);
+  }, [pristine, title, category, color, body, memoId]);
 
   const format = getFormatState(body, selection.start, selection.end);
 
@@ -108,17 +139,34 @@ function WriteScreen() {
 
   function save() {
     if (title.trim() === "") return;
+    const blocks = parseBody(body);
+    const preview = previewOf(body);
+
+    if (memo) {
+      // 수정: 같은 메모를 덮어쓴다. 만든 날짜와 목록의 날짜는 그대로 둔다.
+      const ok = saveEdit({
+        ...memo,
+        title: title.trim(),
+        preview,
+        label: color,
+        detail: { ...memo.detail, category, blocks },
+      });
+      if (!ok) {
+        setFailed(true);
+        return;
+      }
+      clearDraft(memo.id);
+      router.replace(`/memo/${memo.id}`);
+      return;
+    }
+
     const ok = addMemo({
       id: `m-${Date.now().toString(36)}`,
       title: title.trim(),
-      preview: previewOf(body),
+      preview,
       date: "오늘",
       label: color,
-      detail: {
-        category,
-        createdAt: formatCreatedAt(new Date()),
-        blocks: parseBody(body),
-      },
+      detail: { category, createdAt: formatCreatedAt(new Date()), blocks },
     });
     if (!ok) {
       setFailed(true);
@@ -131,10 +179,10 @@ function WriteScreen() {
   return (
     <main className={frameClass}>
       <nav className="flex items-center justify-between">
-        <IconLink label="뒤로가기" href="/">
+        <IconLink label="뒤로가기" href={memo ? `/memo/${memo.id}` : "/"}>
           <IconChevronLeft />
         </IconLink>
-        <span className={`caption-sm text-text-muted ${hasContent ? "" : "invisible"}`}>
+        <span className={`caption-sm text-text-muted ${pristine ? "invisible" : ""}`}>
           자동 저장됨
         </span>
       </nav>

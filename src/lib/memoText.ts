@@ -42,6 +42,30 @@ export function parseBody(text: string): MemoBlock[] {
   return blocks;
 }
 
+/** parseBody의 반대: 저장된 블록을 입력 칸에서 고칠 수 있는 글(서식 표시 포함)로 되돌린다. */
+export function blocksToBody(blocks: MemoBlock[]): string {
+  const lines: string[] = [];
+  blocks.forEach((block, i) => {
+    switch (block.type) {
+      case "heading":
+        lines.push(`# ${block.text}`);
+        break;
+      case "subheading":
+        lines.push(`## ${block.text}`);
+        break;
+      case "paragraph":
+        lines.push(block.text);
+        break;
+      case "list":
+        // 목록 둘이 붙어 있으면 한 목록으로 합쳐지지 않게 빈 줄을 둔다.
+        if (blocks[i - 1]?.type === "list") lines.push("");
+        for (const item of block.items) lines.push(`- ${item}`);
+        break;
+    }
+  });
+  return lines.join("\n");
+}
+
 /** 목록에 보일 한 줄 미리보기: 첫 줄에서 서식 표시를 뺀 글 */
 export function previewOf(text: string): string {
   for (const line of text.split("\n")) {
