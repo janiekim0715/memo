@@ -91,6 +91,15 @@ export const recentMemos: Memo[] = [
     preview: "우유, 계란, 사과, 커피 원두",
     date: "오늘",
     label: "pink",
+    // Figma에 상세 시안이 없어 목록의 미리보기 글에서 만든 내용
+    detail: {
+      category: "개인",
+      createdAt: "오늘",
+      blocks: [
+        { type: "heading", text: "장 볼 것" },
+        { type: "list", items: ["우유", "계란", "사과", "커피 원두"] },
+      ],
+    },
   },
   {
     id: "app-icon-idea",
@@ -98,6 +107,14 @@ export const recentMemos: Memo[] = [
     preview: "메모지 모서리가 접힌 모양",
     date: "오늘",
     label: "orange",
+    detail: {
+      category: "아이디어",
+      createdAt: "오늘",
+      blocks: [
+        { type: "heading", text: "아이콘 방향" },
+        { type: "paragraph", text: "메모지 모서리가 접힌 모양" },
+      ],
+    },
   },
   {
     id: "reading-list",
@@ -105,6 +122,14 @@ export const recentMemos: Memo[] = [
     preview: "디자인 시스템 책 두 권",
     date: "어제",
     label: "green",
+    detail: {
+      category: "개인",
+      createdAt: "어제",
+      blocks: [
+        { type: "heading", text: "읽을 책" },
+        { type: "list", items: ["디자인 시스템 책 두 권"] },
+      ],
+    },
   },
 ];
 
