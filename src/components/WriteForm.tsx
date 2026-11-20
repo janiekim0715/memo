@@ -10,16 +10,9 @@ import {
   type EditResult,
   type LineFormat,
 } from "@/lib/editorFormat";
-import {
-  addMemo,
-  clearDraft,
-  loadDraft,
-  saveDraft,
-  saveEdit,
-  useHydrated,
-  type Draft,
-} from "@/lib/memoStore";
-import { blocksToBody, formatCreatedAt, parseBody, previewOf } from "@/lib/memoText";
+import { createMemo, updateMemo, type MemoInput } from "@/lib/memoApi";
+import { clearDraft, loadDraft, saveDraft, useHydrated, type Draft } from "@/lib/memoStore";
+import { blocksToBody, parseBody, previewOf } from "@/lib/memoText";
 import { PrimaryButton } from "./Button";
 import { Chip } from "./Chip";
 import { ColorDot } from "./ColorDot";
@@ -72,6 +65,7 @@ function WriteScreen({ memo }: { memo?: DetailedMemo }) {
   const [body, setBody] = useState(start.body);
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [failed, setFailed] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingSelection = useRef<{ start: number; end: number } | null>(null);
@@ -137,43 +131,33 @@ function WriteScreen({ memo }: { memo?: DetailedMemo }) {
     setSelection({ start: result.start, end: result.end });
   }
 
-  function save() {
-    if (title.trim() === "") return;
-    const blocks = parseBody(body);
-    const preview = previewOf(body);
-
-    if (memo) {
-      // 수정: 같은 메모를 덮어쓴다. 만든 날짜와 목록의 날짜는 그대로 둔다.
-      const ok = saveEdit({
-        ...memo,
-        title: title.trim(),
-        preview,
-        label: color,
-        detail: { ...memo.detail, category, blocks },
-      });
-      if (!ok) {
-        setFailed(true);
-        return;
-      }
-      clearDraft(memo.id);
-      router.replace(`/memo/${memo.id}`);
-      return;
-    }
-
-    const ok = addMemo({
-      id: `m-${Date.now().toString(36)}`,
+  // Supabase에 저장한다. 수정이면 같은 메모를 덮어쓰고, 만든 날짜는 그대로 둔다.
+  async function save() {
+    if (title.trim() === "" || saving) return;
+    const input: MemoInput = {
       title: title.trim(),
-      preview,
-      date: "오늘",
+      preview: previewOf(body),
+      category,
       label: color,
-      detail: { category, createdAt: formatCreatedAt(new Date()), blocks },
-    });
-    if (!ok) {
+      blocks: parseBody(body),
+    };
+
+    setSaving(true);
+    setFailed(false);
+    try {
+      if (memo) {
+        await updateMemo(memo.id, input);
+        clearDraft(memo.id);
+        router.replace(`/memo/${memo.id}`);
+      } else {
+        await createMemo(input);
+        clearDraft();
+        router.push("/");
+      }
+    } catch {
       setFailed(true);
-      return;
+      setSaving(false);
     }
-    clearDraft();
-    router.push("/");
   }
 
   return (
@@ -260,11 +244,11 @@ function WriteScreen({ memo }: { memo?: DetailedMemo }) {
       <div className="sticky bottom-space-34 flex flex-col gap-space-8">
         {failed && (
           <p role="alert" className="caption-sm text-center text-text-muted">
-            이 브라우저에 저장하지 못했어요. 저장 공간이 막혀 있는지 확인해 주세요.
+            저장하지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.
           </p>
         )}
-        <PrimaryButton onClick={save} disabled={title.trim() === ""}>
-          저장하기
+        <PrimaryButton onClick={save} disabled={title.trim() === "" || saving}>
+          {saving ? "저장하는 중" : "저장하기"}
         </PrimaryButton>
       </div>
     </main>

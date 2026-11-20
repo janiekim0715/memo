@@ -1,11 +1,6 @@
-import { Chip } from "@/components/Chip";
 import { PrimaryButton } from "@/components/Button";
-import { MemoCount, MemoSections } from "@/components/HomeLive";
+import { CategoryTabs, MemoCount, MemoSections } from "@/components/HomeLive";
 import { IconPlus } from "@/components/icons";
-import { pinnedMemos, recentMemos } from "@/data/memos";
-
-// 처음부터 있던 메모 수 (시안의 값). 이 브라우저에서 새로 쓴 메모는 여기에 더해진다.
-const baseMemoCount = 128;
 
 export default function Home() {
   return (
@@ -17,18 +12,13 @@ export default function Home() {
             오늘까지 메모를
             <br />
             <span className="text-primary">
-              <MemoCount base={baseMemoCount} />
+              <MemoCount />
             </span>{" "}
             남겼어요
           </h1>
         </header>
-        <nav aria-label="분류" className="flex gap-space-8 px-space-4">
-          <Chip label="전체" selected />
-          <Chip label="업무" />
-          <Chip label="개인" />
-          <Chip label="아이디어" />
-        </nav>
-        <MemoSections pinnedBase={pinnedMemos} recentBase={recentMemos} />
+        <CategoryTabs />
+        <MemoSections />
       </div>
       <div className="sticky bottom-space-34">
         <PrimaryButton href="/write" icon={<IconPlus />}>
