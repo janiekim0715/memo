@@ -1,5 +1,6 @@
 "use client";
 
+import type { MemoBlock } from "@/data/memos";
 import { useMemoById } from "@/lib/memoApi";
 import { PrimaryButton } from "./Button";
 import { DeleteButton } from "./DeleteButton";
@@ -7,9 +8,14 @@ import { IconButton, IconLink } from "./IconButton";
 import { IconChevronLeft, IconPin, IconShare, IconTrash } from "./icons";
 import { MemoArticleView } from "./MemoArticleView";
 import { PinButton } from "./PinButton";
+import { ShareButton } from "./ShareButton";
 
 /** 위쪽 막대: 뒤로가기, 고정, 공유, 삭제. 메모를 읽기 전에는 고정·삭제 버튼이 눌리지 않는다. */
-export function DetailNav({ memo }: { memo?: { id: string; title: string; pinned: boolean } }) {
+export function DetailNav({
+  memo,
+}: {
+  memo?: { id: string; title: string; pinned: boolean; detail: { blocks: MemoBlock[] } };
+}) {
   return (
     <nav className="flex items-center justify-between">
       <IconLink label="뒤로가기" href="/">
@@ -23,9 +29,13 @@ export function DetailNav({ memo }: { memo?: { id: string; title: string; pinned
             <IconPin />
           </IconButton>
         )}
-        <IconButton label="공유">
-          <IconShare />
-        </IconButton>
+        {memo ? (
+          <ShareButton title={memo.title} blocks={memo.detail.blocks} />
+        ) : (
+          <IconButton label="공유" disabled>
+            <IconShare />
+          </IconButton>
+        )}
         {memo ? (
           <DeleteButton key={`delete-${memo.id}`} id={memo.id} title={memo.title} />
         ) : (
