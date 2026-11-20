@@ -1,0 +1,183 @@
+@import "tailwindcss";
+
+/*
+ * 디자인 토큰 (Figma 변수/텍스트 스타일과 같은 이름)
+ * 변수 이름: Figma의 `/`를 `-`로 바꾼 것. 예) surface/card -> --surface-card
+ * Tailwind 클래스: bg-surface-card, text-text-primary, p-space-16, rounded-md, heading-xl
+ * 새 토큰은 Figma에 먼저 만들고 CLAUDE.md 표에도 같이 적는다.
+ */
+
+/* color/*  (Tailwind 색 + CSS 변수를 겸함. 다크 값은 아래 미디어 쿼리) */
+@theme {
+  --color-primary: #3182f6;
+  --color-secondary: #01b2a9;
+}
+
+/* radius/*  -> rounded-sm / rounded-md / rounded-lg / rounded-xl / rounded-full */
+@theme {
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+  --radius-full: 999px;
+}
+
+:root {
+  /* surface/*, text/*, border/*, label/* (Light) */
+  --surface-page: #f2f4f6;
+  --surface-card: #ffffff;
+  --text-primary: #191f28;
+  --text-secondary: #4e5968;
+  --text-muted: #8b95a1;
+  --text-on-primary: #ffffff;
+  --border-default: #e5e8eb;
+  --label-blue: #3182f6;
+  --label-blue-soft: #e8f3ff;
+  --label-green: #12a150;
+  --label-green-soft: #e3f8ec;
+  --label-orange: #f76808;
+  --label-orange-soft: #fff1e5;
+  --label-pink: #e5397a;
+  --label-pink-soft: #ffeaf1;
+
+  /* space/* */
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-34: 34px;
+  --space-48: 48px;
+  --space-64: 64px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-primary: #4d94ff;
+    --color-secondary: #01b2a9;
+    --surface-page: #101014;
+    --surface-card: #1c1c22;
+    --text-primary: #f1f3f5;
+    --text-secondary: #b3bac2;
+    --text-muted: #6e7783;
+    --text-on-primary: #ffffff;
+    --border-default: #2a2a33;
+    --label-blue: #6aa6ff;
+    --label-blue-soft: #1d2a40;
+    --label-green: #3ccb7f;
+    --label-green-soft: #17302a;
+    --label-orange: #ff9446;
+    --label-orange-soft: #3a2817;
+    --label-pink: #ff6fa2;
+    --label-pink-soft: #3b1d2a;
+  }
+}
+
+/* 위 변수를 Tailwind 클래스로도 쓰게 연결 (이름 그대로) */
+@theme inline {
+  --color-surface-page: var(--surface-page);
+  --color-surface-card: var(--surface-card);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-on-primary: var(--text-on-primary);
+  --color-border-default: var(--border-default);
+  --color-label-blue: var(--label-blue);
+  --color-label-blue-soft: var(--label-blue-soft);
+  --color-label-green: var(--label-green);
+  --color-label-green-soft: var(--label-green-soft);
+  --color-label-orange: var(--label-orange);
+  --color-label-orange-soft: var(--label-orange-soft);
+  --color-label-pink: var(--label-pink);
+  --color-label-pink-soft: var(--label-pink-soft);
+
+  --spacing-space-4: var(--space-4);
+  --spacing-space-8: var(--space-8);
+  --spacing-space-12: var(--space-12);
+  --spacing-space-16: var(--space-16);
+  --spacing-space-20: var(--space-20);
+  --spacing-space-24: var(--space-24);
+  --spacing-space-34: var(--space-34);
+  --spacing-space-48: var(--space-48);
+  --spacing-space-64: var(--space-64);
+
+  --font-sans: var(--font-noto-sans-kr), sans-serif;
+}
+
+/* 텍스트 스타일: heading/xl -> class "heading-xl" (글꼴은 Noto Sans KR) */
+@utility heading-xl {
+  font-size: 28px;
+  line-height: 38px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+}
+@utility heading-lg {
+  font-size: 26px;
+  line-height: 36px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+}
+@utility title-lg {
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+}
+@utility title-md {
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+@utility label-md {
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+@utility body-md {
+  font-size: 16px;
+  line-height: 28px;
+  font-weight: 400;
+  letter-spacing: -0.2px;
+}
+@utility body-md-bold {
+  font-size: 16px;
+  line-height: 28px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+@utility body-sm {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+  letter-spacing: -0.1px;
+}
+@utility caption-md {
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 500;
+  letter-spacing: -0.2px;
+}
+@utility caption-sm {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+@utility button-md {
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+body {
+  background: var(--surface-page);
+  color: var(--text-primary);
+  font-family: var(--font-noto-sans-kr), sans-serif;
+  word-break: keep-all;
+}
+
+/* 아이콘은 글자색을 따른다: SVG는 stroke에 currentColor를 쓰고, 색은 text-* 클래스로 준다 */

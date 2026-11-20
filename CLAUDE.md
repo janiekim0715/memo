@@ -1,0 +1,2 @@
+## Next.js
+@AGENTS.md

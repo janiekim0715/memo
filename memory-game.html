@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이모지 메모리 게임</title>
+<style>
+  :root {
+    --accent: #0e9a80;
+    --ink: #11302b;
+    --muted: #5b7a73;
+    --bg: #eafaf5;
+    --card-front: #ffffff;
+    --line: #cdeee4;
+    --ok: #d6f6ea;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px 48px;
+  }
+  h1 { font-size: 28px; letter-spacing: -0.02em; margin-bottom: 6px; }
+  .sub { color: var(--muted); font-size: 14px; margin-bottom: 24px; text-align: center; }
+
+  .stats {
+    display: flex;
+    gap: 12px;
+    width: min(460px, 100%);
+    margin-bottom: 14px;
+  }
+  .stat {
+    flex: 1;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+  .stat .label { font-size: 12px; color: var(--muted); }
+  .stat .value { font-size: 22px; font-weight: 700; color: var(--accent); }
+
+  .timer {
+    width: min(460px, 100%);
+    margin-bottom: 20px;
+  }
+  .timer-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .bar { height: 10px; background: var(--line); border-radius: 999px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 100%; background: var(--accent); border-radius: 999px; }
+  .bar.idle > i { opacity: .35; }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    width: min(460px, 100%);
+    padding: 18px;
+    border-radius: 28px;
+    background: linear-gradient(145deg, #d9f5ec, #c2ebde);
+    box-shadow: inset 0 3px 8px rgba(14, 90, 74, .18), 0 10px 24px rgba(14, 90, 74, .12);
+    perspective: 900px;
+  }
+  .slot { aspect-ratio: 1; perspective: 700px; }
+
+  .card {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: none;
+    cursor: pointer;
+    transform-style: preserve-3d;
+    transition: transform .55s cubic-bezier(.3, 1.4, .5, 1);
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* filter는 transform-style: preserve-3d를 깨뜨려 앞면이 안 보이므로 쓰지 않는다 */
+  .card:not(.flipped):not(.matched):hover {
+    transform: translateY(-4px) rotateX(10deg) scale(1.04);
+  }
+  .card:not(.flipped):not(.matched):active { transform: translateY(1px) scale(.97); }
+  .card.flipped, .card.matched { transform: rotateY(180deg); }
+  .face {
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  /* 두께감: 아래쪽 단면 + 윗면 하이라이트 */
+  .back {
+    background: linear-gradient(150deg, #3cd0b2 0%, var(--accent) 55%, #0a7a65 100%);
+    color: rgba(255, 255, 255, .92);
+    font-size: clamp(20px, 6vw, 30px);
+    font-weight: 700;
+    text-shadow: 0 2px 3px rgba(0, 0, 0, .25);
+    box-shadow:
+      inset 0 2px 0 rgba(255, 255, 255, .45),
+      inset 0 -3px 6px rgba(0, 0, 0, .2),
+      0 6px 0 #087a65,
+      0 12px 12px rgba(14, 90, 74, .3);
+  }
+  .front {
+    background: linear-gradient(150deg, #ffffff 0%, #eefaf6 100%);
+    font-size: clamp(26px, 8vw, 40px);
+    transform: rotateY(180deg);
+    box-shadow:
+      inset 0 2px 0 #fff,
+      inset 0 -3px 6px rgba(14, 90, 74, .12),
+      0 6px 0 #a9d8ca,
+      0 12px 12px rgba(14, 90, 74, .3);
+  }
+  .card.matched .front {
+    background: linear-gradient(150deg, #e9fff7 0%, var(--ok) 100%);
+    box-shadow:
+      inset 0 2px 0 #fff,
+      inset 0 -3px 6px rgba(14, 90, 74, .12),
+      0 4px 0 #7fcdb4,
+      0 7px 8px rgba(14, 90, 74, .2);
+  }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(17, 48, 43, .45);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: #fff;
+    border-radius: 24px;
+    padding: 36px 32px;
+    text-align: center;
+    max-width: 340px;
+    width: 100%;
+  }
+  .modal h2 { font-size: 24px; margin-bottom: 8px; }
+  .modal p { color: var(--muted); margin-bottom: 24px; }
+  .btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 12px 28px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn:hover { filter: brightness(.92); }
+  .restart { margin-top: 20px; background: #fff; color: var(--accent); border: 1.5px solid var(--accent); }
+</style>
+</head>
+<body>
+
+<h1>🧩 이모지 메모리 게임</h1>
+<p class="sub">카드 두 장을 뒤집어 같은 그림을 찾으세요. 첫 카드를 뒤집으면 10초가 흘러요.</p>
+
+<div class="stats">
+  <div class="stat"><div class="label">점수</div><div class="value" id="score">0</div></div>
+  <div class="stat"><div class="label">시도</div><div class="value" id="tries">0</div></div>
+  <div class="stat"><div class="label">남은 쌍</div><div class="value" id="left">8</div></div>
+</div>
+
+<div class="timer">
+  <div class="timer-row"><span>제한 시간</span><span id="timeText">10.0초</span></div>
+  <div class="bar idle" id="bar"><i id="barFill"></i></div>
+</div>
+
+<div class="board" id="board"></div>
+<button class="btn restart" id="restartBtn">다시 시작</button>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2>🎉 완료!</h2>
+    <p id="resultText"></p>
+    <button class="btn" id="againBtn">다시 하기</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var EMOJIS = ['🐶','🐱','🦊','🐼','🍎','🍕','🍔','🍩']; // 동물 4 + 음식 4
+  var PAIRS = EMOJIS.length; // 8쌍 = 16장 (4x4)
+  var TURN_MS = 10000;
+  var MISMATCH_MS = 800;
+
+  var boardEl = document.getElementById('board');
+  var scoreEl = document.getElementById('score');
+  var triesEl = document.getElementById('tries');
+  var leftEl = document.getElementById('left');
+  var timeText = document.getElementById('timeText');
+  var bar = document.getElementById('bar');
+  var barFill = document.getElementById('barFill');
+  var overlay = document.getElementById('overlay');
+  var resultText = document.getElementById('resultText');
+
+  var first = null, locked = false;
+  var score = 0, tries = 0, matched = 0;
+  var turnStart = 0, rafId = null, timeoutId = null;
+
+  // 효과음: 외부 파일 없이 Web Audio로 합성
+  var audioCtx = null;
+  function playFlip() {
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!audioCtx) audioCtx = new AC();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      var t = audioCtx.currentTime;
+
+      // 종이 카드 스치는 소리: 짧은 노이즈 + 대역 필터
+      var len = Math.floor(audioCtx.sampleRate * 0.12);
+      var buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+      var data = buf.getChannelData(0);
+      for (var i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+      var noise = audioCtx.createBufferSource();
+      noise.buffer = buf;
+      var filter = audioCtx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(2800, t);
+      filter.frequency.exponentialRampToValueAtTime(1200, t + 0.12);
+      var ng = audioCtx.createGain();
+      ng.gain.setValueAtTime(0.5, t);
+      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+      noise.connect(filter); filter.connect(ng); ng.connect(audioCtx.destination);
+      noise.start(t);
+
+      // 카드가 바닥에 닿는 '톡' 소리
+      var osc = audioCtx.createOscillator();
+      var og = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(420, t + 0.08);
+      osc.frequency.exponentialRampToValueAtTime(160, t + 0.2);
+      og.gain.setValueAtTime(0.0001, t + 0.08);
+      og.gain.exponentialRampToValueAtTime(0.35, t + 0.095);
+      og.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+      osc.connect(og); og.connect(audioCtx.destination);
+      osc.start(t + 0.08); osc.stop(t + 0.24);
+    } catch (e) { /* 소리를 못 내도 게임은 계속 */ }
+  }
+
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  function resetTimerUI() {
+    cancelAnimationFrame(rafId);
+    clearTimeout(timeoutId);
+    barFill.style.width = '100%';
+    timeText.textContent = '10.0초';
+    bar.classList.add('idle');
+  }
+
+  function startTurnTimer() {
+    turnStart = performance.now();
+    bar.classList.remove('idle');
+    (function tick() {
+      var left = Math.max(0, TURN_MS - (performance.now() - turnStart));
+      barFill.style.width = (left / TURN_MS * 100) + '%';
+      timeText.textContent = (left / 1000).toFixed(1) + '초';
+      if (left > 0) rafId = requestAnimationFrame(tick);
+    })();
+    timeoutId = setTimeout(function () {
+      // 시간 초과: 첫 카드를 다시 뒷면으로
+      if (first) { first.classList.remove('flipped'); first = null; }
+      resetTimerUI();
+    }, TURN_MS);
+  }
+
+  function onCardClick(card) {
+    if (locked) return;
+    if (card.classList.contains('flipped') || card.classList.contains('matched')) return;
+
+    card.classList.add('flipped');
+    playFlip();
+
+    if (!first) {
+      first = card;
+      startTurnTimer();
+      return;
+    }
+
+    // 두 번째 카드
+    tries++;
+    triesEl.textContent = tries;
+    var a = first, b = card;
+    first = null;
+    resetTimerUI();
+    locked = true;
+
+    if (a.dataset.emoji === b.dataset.emoji) {
+      a.classList.add('matched'); b.classList.add('matched');
+      a.classList.remove('flipped'); b.classList.remove('flipped');
+      score++; matched++;
+      scoreEl.textContent = score;
+      leftEl.textContent = PAIRS - matched;
+      locked = false;
+      if (matched === PAIRS) finish();
+    } else {
+      setTimeout(function () {
+        a.classList.remove('flipped'); b.classList.remove('flipped');
+        locked = false;
+      }, MISMATCH_MS);
+    }
+  }
+
+  function finish() {
+    resultText.textContent = '점수 ' + score + '점 · 시도 ' + tries + '번';
+    setTimeout(function () { overlay.classList.add('show'); }, 500);
+  }
+
+  function build() {
+    boardEl.innerHTML = '';
+    overlay.classList.remove('show');
+    first = null; locked = false;
+    score = 0; tries = 0; matched = 0;
+    scoreEl.textContent = 0; triesEl.textContent = 0; leftEl.textContent = PAIRS;
+    resetTimerUI();
+
+    var deck = shuffle(EMOJIS.concat(EMOJIS));
+    for (var i = 0; i < deck.length; i++) {
+      var slot = document.createElement('div');
+      slot.className = 'slot';
+      var emoji = deck[i];
+      var card = document.createElement('button');
+      card.className = 'card';
+      card.type = 'button';
+      card.dataset.emoji = emoji;
+      card.setAttribute('aria-label', '카드');
+      card.innerHTML = '<span class="face back">?</span><span class="face front">' + emoji + '</span>';
+      card.addEventListener('click', (function (c) { return function () { onCardClick(c); }; })(card));
+      slot.appendChild(card);
+      boardEl.appendChild(slot);
+    }
+  }
+
+  document.getElementById('restartBtn').addEventListener('click', build);
+  document.getElementById('againBtn').addEventListener('click', build);
+  build();
+})();
+</script>
+</body>
+</html>
