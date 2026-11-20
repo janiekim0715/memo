@@ -1,6 +1,6 @@
 import { Chip } from "@/components/Chip";
 import { PrimaryButton } from "@/components/Button";
-import { MemoCount, PinnedMemoCard, RecentMemoCard } from "@/components/HomeLive";
+import { MemoCount, MemoSections } from "@/components/HomeLive";
 import { IconPlus } from "@/components/icons";
 import { pinnedMemos, recentMemos } from "@/data/memos";
 
@@ -28,8 +28,7 @@ export default function Home() {
           <Chip label="개인" />
           <Chip label="아이디어" />
         </nav>
-        <PinnedMemoCard memos={pinnedMemos} />
-        <RecentMemoCard memos={recentMemos} />
+        <MemoSections pinnedBase={pinnedMemos} recentBase={recentMemos} />
       </div>
       <div className="sticky bottom-space-34">
         <PrimaryButton href="/write" icon={<IconPlus />}>

@@ -2,17 +2,20 @@
 
 import { useSyncExternalStore } from "react";
 import type { DetailedMemo, MemoLabel } from "@/data/memos";
+import type { PinState, Pins } from "./memoLists";
 
 /*
  * 이 브라우저의 localStorage에 메모를 저장한다.
  * - memo-app:memos     : 이 브라우저에서 새로 쓴 메모 목록 (새 메모가 맨 앞)
  * - memo-app:overrides : 처음부터 있던 메모를 고친 내용 (메모 id -> 고친 메모)
+ * - memo-app:pins      : 고정/해제 버튼을 누른 메모의 상태 (메모 id -> {pinned, at})
  * - memo-app:draft     : 작성 중인 새 글 (자동 저장)
  * - memo-app:draft:<id>: 수정 중인 글 (자동 저장)
  */
 const MEMOS_KEY = "memo-app:memos";
 const OVERRIDES_KEY = "memo-app:overrides";
 const DRAFT_KEY = "memo-app:draft";
+const PINS_KEY = "memo-app:pins";
 const CHANGE_EVENT = "memo-app:change";
 
 const LABELS: MemoLabel[] = ["blue", "green", "orange", "pink"];
@@ -21,6 +24,7 @@ export type MemoOverrides = Record<string, DetailedMemo>;
 
 const EMPTY_MEMOS: DetailedMemo[] = [];
 const EMPTY_OVERRIDES: MemoOverrides = {};
+const EMPTY_PINS: Pins = {};
 
 function read(key: string): string | null {
   try {
@@ -118,8 +122,22 @@ function createStore<T>(key: string, empty: T, parse: (raw: string | null) => T)
   return { getSnapshot, getServerSnapshot, subscribe };
 }
 
+function parsePins(raw: string | null): Pins {
+  const data = parseJson(raw);
+  if (typeof data !== "object" || data === null || Array.isArray(data)) return EMPTY_PINS;
+  const result: Pins = {};
+  for (const [id, value] of Object.entries(data)) {
+    const pin = value as Partial<PinState> | null;
+    if (pin && typeof pin.pinned === "boolean" && typeof pin.at === "number") {
+      result[id] = { pinned: pin.pinned, at: pin.at };
+    }
+  }
+  return result;
+}
+
 const memosStore = createStore(MEMOS_KEY, EMPTY_MEMOS, parseMemos);
 const overridesStore = createStore(OVERRIDES_KEY, EMPTY_OVERRIDES, parseOverrides);
+const pinsStore = createStore(PINS_KEY, EMPTY_PINS, parsePins);
 
 /** 이 브라우저에서 새로 쓴 메모 (새 메모가 맨 앞). 서버 렌더링 때는 빈 목록. */
 export function useSavedMemos(): DetailedMemo[] {
@@ -136,6 +154,15 @@ export function useMemoOverrides(): MemoOverrides {
     overridesStore.subscribe,
     overridesStore.getSnapshot,
     overridesStore.getServerSnapshot,
+  );
+}
+
+/** 고정/해제 버튼을 누른 메모의 상태 (메모 id -> 상태). 서버 렌더링 때는 빈 객체. */
+export function usePins(): Pins {
+  return useSyncExternalStore(
+    pinsStore.subscribe,
+    pinsStore.getSnapshot,
+    pinsStore.getServerSnapshot,
   );
 }
 
@@ -162,6 +189,16 @@ export function saveEdit(memo: DetailedMemo): boolean {
   const ok = saved.some((item) => item.id === memo.id)
     ? write(MEMOS_KEY, JSON.stringify(saved.map((item) => (item.id === memo.id ? memo : item))))
     : write(OVERRIDES_KEY, JSON.stringify({ ...overridesStore.getSnapshot(), [memo.id]: memo }));
+  if (ok) notifyChange();
+  return ok;
+}
+
+/** 메모를 "고정한 메모"로 옮기거나(true) "최근 메모"로 되돌린다(false). 저장소를 못 쓰면 false. */
+export function setPinned(id: string, pinned: boolean): boolean {
+  const ok = write(
+    PINS_KEY,
+    JSON.stringify({ ...pinsStore.getSnapshot(), [id]: { pinned, at: Date.now() } }),
+  );
   if (ok) notifyChange();
   return ok;
 }
