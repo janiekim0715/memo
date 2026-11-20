@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Memo } from "@/data/memos";
 import { IconChevronRight, IconPinSmall } from "./icons";
 import { MemoItem } from "./MemoItem";
@@ -19,13 +20,13 @@ export function MemoCard({ title, memos, pin = false, action = false }: MemoCard
         {pin && <IconPinSmall className="shrink-0 text-primary" />}
         <h2 className="label-md flex-1 text-text-primary">{title}</h2>
         {action && (
-          <button
-            type="button"
+          <Link
+            href="/memos"
             className="caption-md flex shrink-0 items-center gap-space-4 text-text-muted"
           >
             전체 보기
             <IconChevronRight />
-          </button>
+          </Link>
         )}
       </header>
       <ul>

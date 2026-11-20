@@ -32,6 +32,9 @@ export function MemoCount() {
   return <>{memos.length}개</>;
 }
 
+/** 홈의 "최근 메모" 카드에 보이는 메모 수. 나머지는 "전체 보기"(/memos)에서 본다. */
+const RECENT_LIMIT = 3;
+
 const skeleton = <div aria-hidden className="min-h-[200px] rounded-xl bg-surface-card" />;
 
 /**
@@ -72,7 +75,13 @@ export function MemoSections() {
   return (
     <>
       {pinned.length > 0 && <MemoCard title="고정한 메모" memos={pinned} pin />}
-      {recent.length > 0 && <MemoCard title="최근 메모" memos={recent} action />}
+      {recent.length > 0 && (
+        <MemoCard
+          title="최근 메모"
+          memos={recent.slice(0, RECENT_LIMIT)}
+          action={recent.length > RECENT_LIMIT}
+        />
+      )}
     </>
   );
 }
